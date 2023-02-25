@@ -13,10 +13,20 @@ class PersonService {
   }
 
   //GET LIST
-  getAllPerson = async (filter) => {
+  getAllPerson = async (filter, sort) => {
     let persons = {}
     let obj = Object.keys(filter)
     let paginate = 0;
+    if (!sort) {
+      sort = {}
+      sort.id = "desc"
+    }
+
+    if (filter.filter === undefined) {
+      console.log('abc');
+    }
+
+    //DATA PER PAGE
     if (filter.filter) {
       if (filter.filter.page) {
         let abc = parseInt(filter.filter.page)
@@ -28,6 +38,7 @@ class PersonService {
     let number = await knex.select('*').from('person')
     if (obj.length === 0) {
       let data = await knex.select('*').from('person').limit(3).offset(1)
+        .orderBy(`${Object.keys(sort)[0]}`, `${Object.values(sort)[0]}`)
       persons = {
         data: data,
         pagination: {
@@ -39,19 +50,36 @@ class PersonService {
     else {
       let data = await knex('person')
         .where((qb) => {
+          if (filter.filter !== undefined && filter.filter.more !== undefined) {
+            Object.keys(filter.filter.more).forEach(value => {
+              Object.values(filter.filter.more).forEach(element => {
+                qb.where(value, '>', element)
+              })
+            })
+          }
+          if (filter.filter !== undefined && filter.filter.less !== undefined) {
+            Object.keys(filter.filter.less).forEach(value => {
+              Object.values(filter.filter.less).forEach(element => {
+                qb.where(value, '<', element)
+              })
+            })
+          }
           if (filter.email) {
-            qb.where('email', 'like', `%${filter.email}%`);
+            qb.where('email', 'ilike', `%${filter.email}%`);
           }
 
           if (filter.first_name) {
-            qb.where('first_name', 'like', `%${filter.first_name}%`);
+            qb.where('first_name', 'ilike', `%${filter.first_name}%`);
           }
 
-          if (filter.search) {
-            qb.whereLike('email', `%${filter.search}%`).orWhereLike('first_name', `%${filter.search}%`)
+          if (filter.search) { //SEARCH QUERY
+            let text = filter.search.toLowerCase()
+            qb.whereRaw(`LOWER(first_name) LIKE ?`, [`%${text}%`])
+              .orWhereRaw(`LOWER(last_name) LIKE ?`, [`%${text}%`])
+              .orWhereRaw(`LOWER(email) LIKE ?`, [`%${text}%`])
           }
-        }).limit(3).offset(paginate);
-        let count = await knex('person')
+        }).limit(3).offset(paginate).orderBy(`${Object.keys(sort)[0]}`, `${Object.values(sort)[0]}`);
+      let count = await knex('person')
         .where((qb) => {
           if (filter.email) {
             qb.where('email', 'like', `%${filter.email}%`);
@@ -62,7 +90,9 @@ class PersonService {
           }
 
           if (filter.search) {
-            qb.whereLike('email', `%${filter.search}%`).orWhereLike('first_name', `%${filter.search}%`)
+            let text = filter.search.toLowerCase()
+            qb.whereRaw(`LOWER(first_name) LIKE ?`, [`%${text}%`]).orWhereRaw(`LOWER(last_name) LIKE ?`, [`%${text}%`])
+              .orWhereRaw(`LOWER(email) LIKE ?`, [`%${text}%`])
           }
         });
       let totalPage = Math.ceil(count.length / 3)

@@ -13,7 +13,8 @@ class PersonController {
     getAllPerson = async (req, res) => {
         try {
             const filter = req.query;
-            const persons = await PersonService.getAllPerson(filter)
+            const { sort } = req.query;
+            const persons = await PersonService.getAllPerson(filter, sort)
             res.status(200).json(persons)
         } catch (e) {
             console.log(e)
